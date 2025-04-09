@@ -1,13 +1,23 @@
 <!DOCTYPE html>
 <html>
 <head>
+  <meta charset="UTF-8">
   <title>Dashboard - NEVOR PAY</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <h1>Welcome to NEVOR PAY</h1>
-  <p>You are logged in!</p>
+  <p>Logged in as: <span id="userEmail"></span></p>
+
+  <h3>Wallet Balances</h3>
+  <p>₦ <span id="naira-bal">Loading...</span></p>
+  <p>FCFA <span id="fcfa-bal">Loading...</span></p>
+
+  <button onclick="addNaira()">Add ₦1000</button>
+  <button onclick="addFcfa()">Add FCFA 1000</button>
+  <br><br>
   <button onclick="logout()">Logout</button>
 
   <script>
@@ -21,9 +31,53 @@
   measurementId: "G-V05X1ZMLFJ"
 };
 
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+
+    let currentUser;
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = "index.html";
+      } else {
+        currentUser = user;
+        document.getElementById("userEmail").textContent = user.email;
+        loadBalances();
+      }
+    });
+
+    function loadBalances() {
+      const walletRef = db.collection("wallets").doc(currentUser.uid);
+      walletRef.get().then(doc => {
+        if (doc.exists) {
+          const data = doc.data();
+          document.getElementById("naira-bal").textContent = data.naira;
+          document.getElementById("fcfa-bal").textContent = data.fcfa;
+        } else {
+          walletRef.set({ naira: 0, fcfa: 0 });
+          document.getElementById("naira-bal").textContent = 0;
+          document.getElementById("fcfa-bal").textContent = 0;
+        }
+      });
+    }
+
+    function addNaira() {
+      const walletRef = db.collection("wallets").doc(currentUser.uid);
+      walletRef.update({
+        naira: firebase.firestore.FieldValue.increment(1000)
+      }).then(() => loadBalances());
+    }
+
+    function addFcfa() {
+      const walletRef = db.collection("wallets").doc(currentUser.uid);
+      walletRef.update({
+        fcfa: firebase.firestore.FieldValue.increment(1000)
+      }).then(() => loadBalances());
+    }
+
     function logout() {
       auth.signOut().then(() => {
-        alert("Logged out successfully");
         window.location.href = "index.html";
       });
     }
