@@ -1,34 +1,59 @@
-
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>NEVOR PAY Login</title>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-firestore-compat.js"></script>
-  <link rel="stylesheet" href="style.css" />
+  <meta charset="UTF-8">
+  <title>NEVOR PAY Wallet</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header><h1>NEVOR PAY Wallet</h1></header>
-  <main>
-    <div id="auth-section">
-      <h2>Login</h2>
-      <input type="email" id="email" placeholder="Email"><br>
-      <input type="password" id="password" placeholder="Password"><br>
-      <button onclick="login()">Login</button>
-      <p>or <a href="#" onclick="register()">Register</a></p>
-    </div>
+  <h1>NEVOR PAY Wallet</h1>
+  <div id="auth">
+    <h2>Login</h2>
+    <input type="email" id="email" placeholder="Email" required />
+    <input type="password" id="password" placeholder="Password" required />
+    <br />
+    <button onclick="login()">Login</button>
+    <button onclick="register()">Register</button>
+  </div>
 
-    <div id="dashboard" style="display:none;">
-      <h2>Welcome, <span id="user-email"></span></h2>
-      <p><strong>Wallet Balance:</strong> ₦<span id="naira-bal">0</span> | FCFA <span id="fcfa-bal">0</span></p>
-      <button onclick="logout()">Logout</button>
-    </div>
-  </main>
+  <script>
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID",
+      measurementId: "YOUR_MEASUREMENT_ID"
+    };
 
-  <script src="firebase-config.js"></script>
-  <script src="wallet-app.js"></script>
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+
+    function login() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      auth.signInWithEmailAndPassword(email, password)
+        .then(user => {
+          alert("Login successful!");
+          window.location.href = "dashboard.html";
+        })
+        .catch(error => alert(error.message));
+    }
+
+    function register() {
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      auth.createUserWithEmailAndPassword(email, password)
+        .then(user => {
+          alert("Registration successful!");
+          window.location.href = "dashboard.html";
+        })
+        .catch(error => alert(error.message));
+    }
+  </script>
 </body>
 </html>
