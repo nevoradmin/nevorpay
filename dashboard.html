@@ -24,6 +24,16 @@
   </select><br>
   <button onclick="sendMoney()">Send</button>
 
+<h3>NEVOR FX – Currency Exchange</h3>
+<label>Amount:</label><br>
+<input type="number" id="fx-amount" placeholder="Amount to convert"><br>
+<label>Convert:</label><br>
+<select id="fx-direction">
+  <option value="ngn-fcfa">₦ → FCFA</option>
+  <option value="fcfa-ngn">FCFA → ₦</option>
+</select><br>
+<button onclick="convertCurrency()">Convert</button>
+  
   <h3>My Referrals</h3>
   <p><strong>Referral Code:</strong> <span id="my-referral"></span></p>
   <p><strong>People Referred:</strong> <span id="referral-count">0</span></p>
@@ -33,6 +43,53 @@
   <button onclick="logout()">Logout</button>
 
   <script>
+
+    function convertCurrency() {
+  const amount = parseFloat(document.getElementById("fx-amount").value);
+  const direction = document.getElementById("fx-direction").value;
+
+  if (isNaN(amount) || amount <= 0) {
+    alert("Enter a valid amount.");
+    return;
+  }
+
+  const rate = 1.35; // Example: 1 NGN = 1.35 FCFA
+
+  const walletRef = db.collection("wallets").doc(currentUser.uid);
+
+  if (direction === "ngn-fcfa") {
+    if (currentWallet.naira < amount) {
+      alert("Insufficient ₦ balance.");
+      return;
+    }
+
+    const fcfaAmount = Math.floor(amount * rate);
+
+    walletRef.update({
+      naira: firebase.firestore.FieldValue.increment(-amount),
+      fcfa: firebase.firestore.FieldValue.increment(fcfaAmount)
+    }).then(() => {
+      alert(`Converted ₦${amount} → FCFA ${fcfaAmount}`);
+      loadWallet();
+    });
+
+  } else if (direction === "fcfa-ngn") {
+    if (currentWallet.fcfa < amount) {
+      alert("Insufficient FCFA balance.");
+      return;
+    }
+
+    const ngnAmount = Math.floor(amount / rate);
+
+    walletRef.update({
+      fcfa: firebase.firestore.FieldValue.increment(-amount),
+      naira: firebase.firestore.FieldValue.increment(ngnAmount)
+    }).then(() => {
+      alert(`Converted FCFA ${amount} → ₦${ngnAmount}`);
+      loadWallet();
+    });
+  }
+        }
  const firebaseConfig = {
   apiKey: "AIzaSyBzUgShNYuzX8aD5wYFJC4gGarJjzCfvPs",
   authDomain: "nevor-pay.firebaseapp.com",
