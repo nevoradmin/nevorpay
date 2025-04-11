@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html>
 <head>
@@ -17,36 +16,39 @@
   <p>FCFA <span id="fcfa-bal">Loading...</span></p>
 
   <h3>Send Money</h3>
-  <label>Recipient Account Number:</label><br>
-  <input type="text" id="recipient-acct" placeholder="e.g. 7058954588 or 672602199"><br>
-  <label>Amount:</label><br>
-  <input type="number" id="amount" placeholder="Enter amount"><br>
-  <label>Currency:</label><br>
+  <input type="text" id="recipient-acct" placeholder="Recipient Account Number"><br>
+  <input type="number" id="amount" placeholder="Amount"><br>
   <select id="currency">
     <option value="naira">₦ Naira</option>
     <option value="fcfa">FCFA</option>
-  </select><br><br>
+  </select><br>
   <button onclick="sendMoney()">Send</button>
+
+  <h3>My Referrals</h3>
+  <p><strong>Referral Code:</strong> <span id="my-referral"></span></p>
+  <p><strong>People Referred:</strong> <span id="referral-count">0</span></p>
+  <p><strong>Total Bonus Earned:</strong> <span id="referral-bonus">₦0 / FCFA 0</span></p>
 
   <br><br>
   <button onclick="logout()">Logout</button>
 
   <script>
-    const firebaseConfig = {
-      apiKey: "YOUR_API_KEY",
-      authDomain: "YOUR_AUTH_DOMAIN",
-      projectId: "YOUR_PROJECT_ID",
-      storageBucket: "YOUR_STORAGE_BUCKET",
-      messagingSenderId: "YOUR_SENDER_ID",
-      appId: "YOUR_APP_ID"
-    };
+ const firebaseConfig = {
+  apiKey: "AIzaSyBzUgShNYuzX8aD5wYFJC4gGarJjzCfvPs",
+  authDomain: "nevor-pay.firebaseapp.com",
+  projectId: "nevor-pay",
+  storageBucket: "nevor-pay.firebasestorage.app",
+  messagingSenderId: "131376993507",
+  appId: "1:131376993507:web:75a4a8f51e73434fece1d6",
+  measurementId: "G-V05X1ZMLFJ"
+};
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
     let currentUser;
-    let senderWallet = {};
+    let currentWallet;
 
     auth.onAuthStateChanged(user => {
       if (!user) {
@@ -54,17 +56,42 @@
       } else {
         currentUser = user;
         document.getElementById("userEmail").textContent = user.email;
-        loadBalances();
+        loadWallet();
       }
     });
 
-    function loadBalances() {
-      const walletRef = db.collection("wallets").doc(currentUser.uid);
-      walletRef.get().then(doc => {
+    function loadWallet() {
+      db.collection("wallets").doc(currentUser.uid).get().then(doc => {
         if (doc.exists) {
-          senderWallet = doc.data();
-          document.getElementById("naira-bal").textContent = senderWallet.naira;
-          document.getElementById("fcfa-bal").textContent = senderWallet.fcfa;
+          currentWallet = doc.data();
+          document.getElementById("naira-bal").textContent = currentWallet.naira;
+          document.getElementById("fcfa-bal").textContent = currentWallet.fcfa;
+          document.getElementById("my-referral").textContent = currentWallet.account_number;
+          loadReferrals(currentWallet.account_number, currentWallet.country);
+        }
+      });
+    }
+
+    function loadReferrals(referralCode, country) {
+      db.collection("wallets").where("referrer", "==", referralCode).get().then(snapshot => {
+        const count = snapshot.size;
+        document.getElementById("referral-count").textContent = count;
+        const bonusUnit = Math.floor(count / 3);
+        const bonusAmount = bonusUnit * 1000;
+
+        // Update wallet if needed
+        const bonusField = country === "Nigeria" ? "naira" : "fcfa";
+        const bonusText = country === "Nigeria" ? `₦${bonusAmount}` : `FCFA ${bonusAmount}`;
+        document.getElementById("referral-bonus").textContent = bonusText;
+
+        // Optional: Automatically credit bonus (skip if already done)
+        // You could track which referral IDs have already earned bonuses in another collection for production
+
+        if (bonusUnit > 0) {
+          const walletRef = db.collection("wallets").doc(currentUser.uid);
+          walletRef.update({
+            [bonusField]: firebase.firestore.FieldValue.increment(bonusAmount)
+          });
         }
       });
     }
@@ -75,16 +102,16 @@
       const currency = document.getElementById("currency").value;
 
       if (!acct || isNaN(amt) || amt <= 0) {
-        alert("Please enter valid details.");
+        alert("Enter valid recipient and amount.");
         return;
       }
 
-      if (currency === "naira" && senderWallet.naira < amt) {
+      if (currency === "naira" && currentWallet.naira < amt) {
         alert("Insufficient ₦ balance.");
         return;
       }
 
-      if (currency === "fcfa" && senderWallet.fcfa < amt) {
+      if (currency === "fcfa" && currentWallet.fcfa < amt) {
         alert("Insufficient FCFA balance.");
         return;
       }
@@ -98,24 +125,22 @@
 
           const recipientDoc = snapshot.docs[0];
           const recipientRef = db.collection("wallets").doc(recipientDoc.id);
-
-          // Perform atomic updates
-          const updates = [];
           const senderRef = db.collection("wallets").doc(currentUser.uid);
-          updates.push(senderRef.update({ [currency]: firebase.firestore.FieldValue.increment(-amt) }));
-          updates.push(recipientRef.update({ [currency]: firebase.firestore.FieldValue.increment(amt) }));
+
+          const updates = [
+            senderRef.update({ [currency]: firebase.firestore.FieldValue.increment(-amt) }),
+            recipientRef.update({ [currency]: firebase.firestore.FieldValue.increment(amt) })
+          ];
 
           Promise.all(updates).then(() => {
-            alert("Transfer successful.");
-            loadBalances();
+            alert("Transfer successful!");
+            loadWallet();
           });
         });
     }
 
     function logout() {
-      auth.signOut().then(() => {
-        window.location.href = "index.html";
-      });
+      auth.signOut().then(() => window.location.href = "index.html");
     }
   </script>
 </body>
