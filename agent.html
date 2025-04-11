@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>NEVOR Agent Portal</title>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <h1>NEVOR PAY – Agent Portal</h1>
+  <p>Logged in as: <span id="agentEmail"></span></p>
+
+  <h3>Find User</h3>
+  <input type="text" id="targetAcct" placeholder="User Account Number"><br>
+  <select id="currency">
+    <option value="naira">₦ Naira</option>
+    <option value="fcfa">FCFA</option>
+  </select><br>
+  <input type="number" id="agentAmount" placeholder="Amount"><br>
+  <button onclick="agentDeposit()">Deposit</button>
+  <button onclick="agentWithdraw()">Withdraw</button>
+
+  <h3>Agent Transactions</h3>
+  <div id="agentTx">Loading...</div>
+
+  <br><br>
+  <button onclick="logout()">Logout</button>
+
+  <script>
+    const firebaseConfig = {
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
+    let agentUser;
+
+    auth.onAuthStateChanged(user => {
+      if (!user) {
+        window.location.href = "index.html";
+      } else {
+        agentUser = user;
+        db.collection("wallets").doc(user.uid).get().then(doc => {
+          if (!doc.exists || doc.data().role !== "agent") {
+            alert("Access denied. Not an agent.");
+            auth.signOut();
+          } else {
+            document.getElementById("agentEmail").textContent = user.email;
+            loadAgentTx();
+          }
+        });
+      }
+    });
+
+    function agentDeposit() {
+      const acct = document.getElementById("targetAcct").value.trim();
+      const amount = parseInt(document.getElementById("agentAmount").value);
+      const currency = document.getElementById("currency").value;
+      if (!acct || isNaN(amount) || amount <= 0) return alert("Invalid input");
+
+      db.collection("wallets").where("account_number", "==", acct).get().then(snapshot => {
+        if (snapshot.empty) return alert("User not found");
+
+        const userRef = db.collection("wallets").doc(snapshot.docs[0].id);
+        userRef.update({
+          [currency]: firebase.firestore.FieldValue.increment(amount)
+        }).then(() => {
+          alert("Deposit successful");
+          logAgentTx("deposit", acct, amount, currency);
+        });
+      });
+    }
+
+    function agentWithdraw() {
+      const acct = document.getElementById("targetAcct").value.trim();
+      const amount = parseInt(document.getElementById("agentAmount").value);
+      const currency = document.getElementById("currency").value;
+      if (!acct || isNaN(amount) || amount <= 0) return alert("Invalid input");
+
+      db.collection("wallets").where("account_number", "==", acct).get().then(snapshot => {
+        if (snapshot.empty) return alert("User not found");
+
+        const userDoc = snapshot.docs[0];
+        const userRef = db.collection("wallets").doc(userDoc.id);
+        const balance = userDoc.data()[currency];
+
+        if (balance < amount) return alert("Insufficient user balance");
+
+        userRef.update({
+          [currency]: firebase.firestore.FieldValue.increment(-amount)
+        }).then(() => {
+          alert("Withdrawal successful");
+          logAgentTx("withdraw", acct, amount, currency);
+        });
+      });
+    }
+
+    function logAgentTx(type, acct, amount, currency) {
+      db.collection("agent_transactions").add({
+        agentId: agentUser.uid,
+        type: type,
+        account: acct,
+        amount: amount,
+        currency: currency,
+        timestamp: new Date()
+      }).then(loadAgentTx);
+    }
+
+    function loadAgentTx() {
+      db.collection("agent_transactions")
+        .where("agentId", "==", agentUser.uid)
+        .orderBy("timestamp", "desc")
+        .limit(10)
+        .get().then(snapshot => {
+          const txDiv = document.getElementById("agentTx");
+          if (snapshot.empty) {
+            txDiv.innerHTML = "<p>No agent transactions yet.</p>";
+            return;
+          }
+
+          let html = "<ul>";
+          snapshot.forEach(doc => {
+            const tx = doc.data();
+            const time = new Date(tx.timestamp.seconds * 1000).toLocaleString();
+            html += `<li><strong>${tx.type.toUpperCase()}</strong> ${tx.amount} ${tx.currency.toUpperCase()} for acct ${tx.account} <br><small>${time}</small></li>`;
+          });
+          html += "</ul>";
+          txDiv.innerHTML = html;
+        });
+    }
+
+    function logout() {
+      auth.signOut().then(() => window.location.href = "index.html");
+    }
+  </script>
+</body>
+</html>
