@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -15,27 +16,37 @@
   <p>₦ <span id="naira-bal">Loading...</span></p>
   <p>FCFA <span id="fcfa-bal">Loading...</span></p>
 
-  <button onclick="addNaira()">Add ₦1000</button>
-  <button onclick="addFcfa()">Add FCFA 1000</button>
+  <h3>Send Money</h3>
+  <label>Recipient Account Number:</label><br>
+  <input type="text" id="recipient-acct" placeholder="e.g. 7058954588 or 672602199"><br>
+  <label>Amount:</label><br>
+  <input type="number" id="amount" placeholder="Enter amount"><br>
+  <label>Currency:</label><br>
+  <select id="currency">
+    <option value="naira">₦ Naira</option>
+    <option value="fcfa">FCFA</option>
+  </select><br><br>
+  <button onclick="sendMoney()">Send</button>
+
   <br><br>
   <button onclick="logout()">Logout</button>
 
   <script>
     const firebaseConfig = {
-  apiKey: "AIzaSyBzUgShNYuzX8aD5wYFJC4gGarJjzCfvPs",
-  authDomain: "nevor-pay.firebaseapp.com",
-  projectId: "nevor-pay",
-  storageBucket: "nevor-pay.firebasestorage.app",
-  messagingSenderId: "131376993507",
-  appId: "1:131376993507:web:75a4a8f51e73434fece1d6",
-  measurementId: "G-V05X1ZMLFJ"
-};
+      apiKey: "YOUR_API_KEY",
+      authDomain: "YOUR_AUTH_DOMAIN",
+      projectId: "YOUR_PROJECT_ID",
+      storageBucket: "YOUR_STORAGE_BUCKET",
+      messagingSenderId: "YOUR_SENDER_ID",
+      appId: "YOUR_APP_ID"
+    };
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
     const db = firebase.firestore();
 
     let currentUser;
+    let senderWallet = {};
 
     auth.onAuthStateChanged(user => {
       if (!user) {
@@ -51,29 +62,54 @@
       const walletRef = db.collection("wallets").doc(currentUser.uid);
       walletRef.get().then(doc => {
         if (doc.exists) {
-          const data = doc.data();
-          document.getElementById("naira-bal").textContent = data.naira;
-          document.getElementById("fcfa-bal").textContent = data.fcfa;
-        } else {
-          walletRef.set({ naira: 0, fcfa: 0 });
-          document.getElementById("naira-bal").textContent = 0;
-          document.getElementById("fcfa-bal").textContent = 0;
+          senderWallet = doc.data();
+          document.getElementById("naira-bal").textContent = senderWallet.naira;
+          document.getElementById("fcfa-bal").textContent = senderWallet.fcfa;
         }
       });
     }
 
-    function addNaira() {
-      const walletRef = db.collection("wallets").doc(currentUser.uid);
-      walletRef.update({
-        naira: firebase.firestore.FieldValue.increment(1000)
-      }).then(() => loadBalances());
-    }
+    function sendMoney() {
+      const acct = document.getElementById("recipient-acct").value.trim();
+      const amt = parseInt(document.getElementById("amount").value);
+      const currency = document.getElementById("currency").value;
 
-    function addFcfa() {
-      const walletRef = db.collection("wallets").doc(currentUser.uid);
-      walletRef.update({
-        fcfa: firebase.firestore.FieldValue.increment(1000)
-      }).then(() => loadBalances());
+      if (!acct || isNaN(amt) || amt <= 0) {
+        alert("Please enter valid details.");
+        return;
+      }
+
+      if (currency === "naira" && senderWallet.naira < amt) {
+        alert("Insufficient ₦ balance.");
+        return;
+      }
+
+      if (currency === "fcfa" && senderWallet.fcfa < amt) {
+        alert("Insufficient FCFA balance.");
+        return;
+      }
+
+      db.collection("wallets").where("account_number", "==", acct).get()
+        .then(snapshot => {
+          if (snapshot.empty) {
+            alert("Recipient not found.");
+            return;
+          }
+
+          const recipientDoc = snapshot.docs[0];
+          const recipientRef = db.collection("wallets").doc(recipientDoc.id);
+
+          // Perform atomic updates
+          const updates = [];
+          const senderRef = db.collection("wallets").doc(currentUser.uid);
+          updates.push(senderRef.update({ [currency]: firebase.firestore.FieldValue.increment(-amt) }));
+          updates.push(recipientRef.update({ [currency]: firebase.firestore.FieldValue.increment(amt) }));
+
+          Promise.all(updates).then(() => {
+            alert("Transfer successful.");
+            loadBalances();
+          });
+        });
     }
 
     function logout() {
