@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -24,81 +25,39 @@
   </select><br>
   <button onclick="sendMoney()">Send</button>
 
-<h3>NEVOR FX – Currency Exchange</h3>
-<label>Amount:</label><br>
-<input type="number" id="fx-amount" placeholder="Amount to convert"><br>
-<label>Convert:</label><br>
-<select id="fx-direction">
-  <option value="ngn-fcfa">₦ → FCFA</option>
-  <option value="fcfa-ngn">FCFA → ₦</option>
-</select><br>
-<button onclick="convertCurrency()">Convert</button>
-  
+  <h3>NEVOR FX – Currency Exchange</h3>
+  <label>Amount:</label><br>
+  <input type="number" id="fx-amount" placeholder="Amount to convert"><br>
+  <label>Convert:</label><br>
+  <select id="fx-direction">
+    <option value="ngn-fcfa">₦ → FCFA</option>
+    <option value="fcfa-ngn">FCFA → ₦</option>
+  </select><br>
+  <button onclick="convertCurrency()">Convert</button>
+
   <h3>My Referrals</h3>
   <p><strong>Referral Code:</strong> <span id="my-referral"></span></p>
   <p><strong>People Referred:</strong> <span id="referral-count">0</span></p>
   <p><strong>Total Bonus Earned:</strong> <span id="referral-bonus">₦0 / FCFA 0</span></p>
 
+  <h3>Transaction History</h3>
+  <div id="transactions">
+    <p>Loading transactions...</p>
+  </div>
+
   <br><br>
   <button onclick="logout()">Logout</button>
 
   <script>
-
-    function convertCurrency() {
-  const amount = parseFloat(document.getElementById("fx-amount").value);
-  const direction = document.getElementById("fx-direction").value;
-
-  if (isNaN(amount) || amount <= 0) {
-    alert("Enter a valid amount.");
-    return;
-  }
-
-  const rate = 1.35; // Example: 1 NGN = 1.35 FCFA
-
-  const walletRef = db.collection("wallets").doc(currentUser.uid);
-
-  if (direction === "ngn-fcfa") {
-    if (currentWallet.naira < amount) {
-      alert("Insufficient ₦ balance.");
-      return;
-    }
-
-    const fcfaAmount = Math.floor(amount * rate);
-
-    walletRef.update({
-      naira: firebase.firestore.FieldValue.increment(-amount),
-      fcfa: firebase.firestore.FieldValue.increment(fcfaAmount)
-    }).then(() => {
-      alert(`Converted ₦${amount} → FCFA ${fcfaAmount}`);
-      loadWallet();
-    });
-
-  } else if (direction === "fcfa-ngn") {
-    if (currentWallet.fcfa < amount) {
-      alert("Insufficient FCFA balance.");
-      return;
-    }
-
-    const ngnAmount = Math.floor(amount / rate);
-
-    walletRef.update({
-      fcfa: firebase.firestore.FieldValue.increment(-amount),
-      naira: firebase.firestore.FieldValue.increment(ngnAmount)
-    }).then(() => {
-      alert(`Converted FCFA ${amount} → ₦${ngnAmount}`);
-      loadWallet();
-    });
-  }
-        }
- const firebaseConfig = {
-  apiKey: "AIzaSyBzUgShNYuzX8aD5wYFJC4gGarJjzCfvPs",
-  authDomain: "nevor-pay.firebaseapp.com",
-  projectId: "nevor-pay",
-  storageBucket: "nevor-pay.firebasestorage.app",
-  messagingSenderId: "131376993507",
-  appId: "1:131376993507:web:75a4a8f51e73434fece1d6",
-  measurementId: "G-V05X1ZMLFJ"
-};
+    const firebaseConfig = {
+      apiKey: "AIzaSyBzUgShNYuzX8aD5wYFJC4gGarJjzCfvPs",
+      authDomain: "nevor-pay.firebaseapp.com",
+      projectId: "nevor-pay",
+      storageBucket: "nevor-pay.firebasestorage.app",
+      messagingSenderId: "131376993507",
+      appId: "1:131376993507:web:75a4a8f51e73434fece1d6",
+      measurementId: "G-V05X1ZMLFJ"
+    };
 
     firebase.initializeApp(firebaseConfig);
     const auth = firebase.auth();
@@ -125,6 +84,7 @@
           document.getElementById("fcfa-bal").textContent = currentWallet.fcfa;
           document.getElementById("my-referral").textContent = currentWallet.account_number;
           loadReferrals(currentWallet.account_number, currentWallet.country);
+          loadTransactions();
         }
       });
     }
@@ -135,20 +95,15 @@
         document.getElementById("referral-count").textContent = count;
         const bonusUnit = Math.floor(count / 3);
         const bonusAmount = bonusUnit * 1000;
-
-        // Update wallet if needed
         const bonusField = country === "Nigeria" ? "naira" : "fcfa";
         const bonusText = country === "Nigeria" ? `₦${bonusAmount}` : `FCFA ${bonusAmount}`;
         document.getElementById("referral-bonus").textContent = bonusText;
 
-        // Optional: Automatically credit bonus (skip if already done)
-        // You could track which referral IDs have already earned bonuses in another collection for production
-
         if (bonusUnit > 0) {
-          const walletRef = db.collection("wallets").doc(currentUser.uid);
-          walletRef.update({
+          db.collection("wallets").doc(currentUser.uid).update({
             [bonusField]: firebase.firestore.FieldValue.increment(bonusAmount)
           });
+          logTransaction("referral_bonus", bonusAmount, bonusField);
         }
       });
     }
@@ -191,8 +146,88 @@
 
           Promise.all(updates).then(() => {
             alert("Transfer successful!");
+            logTransaction("send", amt, currency, acct);
             loadWallet();
           });
+        });
+    }
+
+    function convertCurrency() {
+      const amount = parseFloat(document.getElementById("fx-amount").value);
+      const direction = document.getElementById("fx-direction").value;
+
+      if (isNaN(amount) || amount <= 0) {
+        alert("Enter a valid amount.");
+        return;
+      }
+
+      const rate = 1.35;
+      const walletRef = db.collection("wallets").doc(currentUser.uid);
+
+      if (direction === "ngn-fcfa") {
+        if (currentWallet.naira < amount) {
+          alert("Insufficient ₦ balance.");
+          return;
+        }
+        const fcfaAmount = Math.floor(amount * rate);
+        walletRef.update({
+          naira: firebase.firestore.FieldValue.increment(-amount),
+          fcfa: firebase.firestore.FieldValue.increment(fcfaAmount)
+        }).then(() => {
+          alert(`Converted ₦${amount} → FCFA ${fcfaAmount}`);
+          logTransaction("exchange", amount, "naira");
+          loadWallet();
+        });
+      } else {
+        if (currentWallet.fcfa < amount) {
+          alert("Insufficient FCFA balance.");
+          return;
+        }
+        const ngnAmount = Math.floor(amount / rate);
+        walletRef.update({
+          fcfa: firebase.firestore.FieldValue.increment(-amount),
+          naira: firebase.firestore.FieldValue.increment(ngnAmount)
+        }).then(() => {
+          alert(`Converted FCFA ${amount} → ₦${ngnAmount}`);
+          logTransaction("exchange", amount, "fcfa");
+          loadWallet();
+        });
+      }
+    }
+
+    function logTransaction(type, amount, currency, otherParty = null) {
+      const txRef = db.collection("transactions").doc();
+      txRef.set({
+        userId: currentUser.uid,
+        type: type,
+        amount: amount,
+        currency: currency,
+        to: otherParty || null,
+        timestamp: new Date()
+      });
+    }
+
+    function loadTransactions() {
+      db.collection("transactions")
+        .where("userId", "==", currentUser.uid)
+        .orderBy("timestamp", "desc")
+        .limit(10)
+        .get()
+        .then(snapshot => {
+          const txDiv = document.getElementById("transactions");
+          if (snapshot.empty) {
+            txDiv.innerHTML = "<p>No transactions yet.</p>";
+            return;
+          }
+
+          let html = "<ul>";
+          snapshot.forEach(doc => {
+            const tx = doc.data();
+            const time = new Date(tx.timestamp.seconds * 1000).toLocaleString();
+            html += `<li><strong>${tx.type.toUpperCase()}</strong> – ${tx.amount} ${tx.currency.toUpperCase()} ${tx.to ? '→ ' + tx.to : ''} <br><small>${time}</small></li>`;
+          });
+          html += "</ul>";
+          txDiv.innerHTML = html;
         });
     }
 
@@ -201,4 +236,5 @@
     }
   </script>
 </body>
-</html>
+  </html>
+  
