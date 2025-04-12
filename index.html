@@ -1,26 +1,28 @@
-
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>NEVOR PAY Register</title>
+  <title>Register - NEVOR PAY</title>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
 </head>
 <body>
   <h2>Register to NEVOR PAY</h2>
+  
   <select id="country">
     <option value="NG">🇳🇬 Nigeria (+234)</option>
     <option value="CM">🇨🇲 Cameroon (+237)</option>
   </select><br><br>
 
-  <input type="text" id="phone" placeholder="Phone Number (No +country code)" /><br>
+  <input type="text" id="phone" placeholder="Phone Number (No +code)" /><br>
   <input type="email" id="email" placeholder="Email" /><br>
   <input type="password" id="password" placeholder="Password" /><br>
+  <input type="text" id="referral" placeholder="Referral Code (optional)" /><br>
   <button onclick="register()">Register</button>
 
   <script>
+    // Initialize Firebase
     const firebaseConfig = {
   apiKey: "AIzaSyBzUgShNYuzX8aD5wYFJC4gGarJjzCfvPs",
   authDomain: "nevor-pay.firebaseapp.com",
@@ -30,40 +32,47 @@
   appId: "1:131376993507:web:75a4a8f51e73434fece1d6",
   measurementId: "G-V05X1ZMLFJ"
 };
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-d("password").value;
+    // Redirect if already logged in
+    auth.onAuthStateChanged(user => {
+      if (user) window.location.href = "dashboard.html";
+    });
+
+    function register() {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
       const phone = document.getElementById("phone").value.trim();
       const country = document.getElementById("country").value;
+      const referral = document.getElementById("referral").value.trim();
 
-      let countryCode = "";
-      let accountNumber = "";
-
+      let code = "", account_number = "";
       if (country === "NG") {
-        countryCode = "+234";
-        if (phone.length !== 10) {
-          alert("Nigerian phone number must be 10 digits.");
-          return;
-        }
-        accountNumber = phone;
+        code = "+234";
+        if (phone.length !== 10) return alert("Nigeria phone must be 10 digits");
+        account_number = phone;
       } else if (country === "CM") {
-        countryCode = "+237";
-        if (phone.length !== 9) {
-          alert("Cameroonian phone number must be 9 digits.");
-          return;
-        }
-        accountNumber = phone;
+        code = "+237";
+        if (phone.length !== 9) return alert("Cameroon phone must be 9 digits");
+        account_number = phone;
       }
 
-      const fullPhone = countryCode + phone;
+      const fullPhone = code + phone;
 
       auth.createUserWithEmailAndPassword(email, password)
         .then(user => {
           return db.collection("wallets").doc(user.user.uid).set({
+            email,
+            phone: fullPhone,
+            account_number,
+            country: country === "NG" ? "Nigeria" : "Cameroon",
             naira: 0,
             fcfa: 0,
-            country: country === "NG" ? "Nigeria" : "Cameroon",
-            phone: fullPhone,
-            account_number: accountNumber
+            referrer: referral || null,
+            referrals: [],
+            role: "user"
           });
         })
         .then(() => {
