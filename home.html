@@ -1,0 +1,97 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>NEVOR PAY – Home</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(to bottom right, #e0f2fe, #f0fdf4);
+      text-align: center;
+    }
+    header {
+      padding: 30px 10px 10px;
+    }
+    header img {
+      width: 120px;
+      animation: float 3s ease-in-out infinite;
+    }
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    h1 {
+      font-size: 32px;
+      color: #0f172a;
+    }
+    p {
+      font-size: 18px;
+      margin: 10px auto;
+      max-width: 500px;
+      color: #334155;
+    }
+    .btn {
+      display: inline-block;
+      margin: 12px 8px;
+      padding: 12px 28px;
+      font-size: 16px;
+      background-color: #1e3a8a;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      text-decoration: none;
+      transition: 0.3s ease;
+    }
+    .btn:hover {
+      background-color: #1d4ed8;
+    }
+    .lang-toggle {
+      margin-top: 20px;
+    }
+    footer {
+      font-size: 13px;
+      color: #64748b;
+      margin: 40px 0 20px;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <img src="https://nevoradmin.github.io/nevor.com/assets/logo.png" alt="NEVOR PAY Logo">
+  </header>
+
+  <main>
+    <h1 id="title">Welcome to NEVOR PAY</h1>
+    <p id="subtitle">Your trusted digital wallet for Nigeria, Cameroon, and beyond.</p>
+
+    <div>
+      <a href="login.html" class="btn">Login</a>
+      <a href="index.html" class="btn">Register</a>
+      <a href="https://nevoradmin.github.io/nevor.com" class="btn">Learn More</a>
+    </div>
+
+    <div class="lang-toggle">
+      <button onclick="setLanguage('en')" class="btn">English</button>
+      <button onclick="setLanguage('fr')" class="btn">Français</button>
+    </div>
+  </main>
+
+  <footer>&copy; 2024 NEVOR PAY. All rights reserved.</footer>
+
+  <script>
+    function setLanguage(lang) {
+      if (lang === 'fr') {
+        document.getElementById("title").textContent = "Bienvenue à NEVOR PAY";
+        document.getElementById("subtitle").textContent = "Votre portefeuille numérique de confiance pour le Nigéria, le Cameroun et au-delà.";
+      } else {
+        document.getElementById("title").textContent = "Welcome to NEVOR PAY";
+        document.getElementById("subtitle").textContent = "Your trusted digital wallet for Nigeria, Cameroon, and beyond.";
+      }
+    }
+  </script>
+</body>
+</html>
